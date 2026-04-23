@@ -69,7 +69,7 @@ def validate_init_data(init_data: str) -> dict | None:
 async def auth_middleware(request, handler):
     """Extract and validate Telegram user from Authorization header."""
     # Static files don't need auth
-    if request.path.startswith("/webapp") or request.path == "/health":
+    if request.path.startswith("/webapp") or request.path == "/health" or request.patj == "/";
         return await handler(request)
 
     init_data = request.headers.get("Authorization", "")
@@ -257,6 +257,7 @@ async def mark_read(request):
 
 # ── Static files (Mini App) ──
 
+@routes.get("/")
 @routes.get("/webapp")
 @routes.get("/webapp/")
 async def serve_webapp(request):
