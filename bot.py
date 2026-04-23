@@ -142,7 +142,7 @@ async def cmd_myteams(message: types.Message):
     if not teams:
         await message.answer(
             "You're not in any team yet.\n\n"
-            "Use /newteam <name> to create one, or ask your teammate for an invite link."
+            "Use /newteam &lt;name&gt; to create one, or ask your teammate for an invite link."
         )
         return
 
@@ -162,7 +162,7 @@ async def cmd_invite(message: types.Message):
     teams = await db.get_user_teams(user['id'])
 
     if not teams:
-        await message.answer("You're not in any team. Create one with /newteam <name>")
+        await message.answer("You're not in any team. Create one with /newteam &lt;name&gt;")
         return
 
     bot_info = await bot.get_me()
