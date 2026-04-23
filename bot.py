@@ -6,6 +6,7 @@ Uses aiogram 3.x
 import os
 import asyncio
 import logging
+from aiogram.utils.markdown import html_decoration as html
 from aiogram import Bot, Dispatcher, types, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.filters import Command, CommandStart
