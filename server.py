@@ -65,6 +65,7 @@ def validate_init_data(init_data: str) -> dict | None:
         return None
 
 
+@web.middleware
 async def auth_middleware(request, handler):
     """Extract and validate Telegram user from Authorization header."""
     # Static files don't need auth
