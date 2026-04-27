@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Task Tracker</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: var(--tg-theme-bg-color, #0f0f13);
+    --surface: var(--tg-theme-secondary-bg-color, #1a1a24);
+    --text: var(--tg-theme-text-color, #e4e4f0);
+    --text2: var(--tg-theme-hint-color, #9595b0);
+    --accent: var(--tg-theme-button-color, #6c5ce7);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --link: var(--tg-theme-link-color, #a29bfe);
+    --border: var(--tg-theme-section-separator-color, #2d2d4a);
+    --surface2: #22223a;
+    --green: #00cec9;
+    --green-bg: #00cec915;
+    --orange: #fdcb6e;
+    --orange-bg: #fdcb6e15;
+    --red: #ff7675;
+    --red-bg: #ff767515;
+    --blue: #74b9ff;
+    --blue-bg: #74b9ff15;
+    --purple: #a29bfe;
+    --purple-bg: #a29bfe15;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom, 20px);
+    overflow-x: hidden;
+  }
+
+  /* ── Nav Tabs ── */
+  .nav {
+    display:flex; gap:2px;
+    background: var(--surface);
+    padding:6px; margin:8px;
+    border-radius: var(--radius);
+    position:sticky; top:0; z-index:100;
+  }
+  .nav-tab {
+    flex:1; padding:10px 8px; border:none; background:transparent;
+    color: var(--text2); font-size:13px; font-weight:600;
+    border-radius: var(--radius-sm); cursor:pointer;
+    transition: all .2s; text-align:center;
+  }
+  .nav-tab.active { background: var(--accent); color: var(--accent-text); }
+
+  /* ── Team selector ── */
+  .team-bar {
+    display:flex; align-items:center; gap:8px;
+    padding:8px 12px; margin:0 8px 8px;
+    background:var(--surface); border-radius:var(--radius-sm);
+  }
+  .team-bar select {
+    flex:1; background:transparent; border:none; color:var(--text);
+    font-size:14px; font-weight:600;
+  }
+  .team-bar select option { background:var(--surface); color:var(--text); }
+
+  /* ── Content area ── */
+  .content { padding:0 8px 80px; }
+  .view { display:none; }
+  .view.active { display:block; }
+
+  /* ── Kanban ── */
+  .kanban { display:flex; gap:10px; overflow-x:auto; padding-bottom:8px; -webkit-overflow-scrolling:touch; }
+  .kanban-col {
+    min-width:260px; width:260px; flex-shrink:0;
+    background:var(--surface); border-radius:var(--radius);
+    display:flex; flex-direction:column;
+    max-height:calc(100vh - 160px);
+  }
+  .col-header {
+    padding:12px 14px; display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--border);
+  }
+  .col-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+  .col-count {
+    font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px;
+    background:var(--bg); color:var(--text2);
+  }
+  .col-cards {
+    padding:8px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;
+    min-height:40px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background:var(--bg); border-radius:var(--radius-sm);
+    padding:10px 12px; cursor:pointer;
+    transition: transform .15s; position:relative;
+    border:1px solid transparent;
+    -webkit-user-select:none;
+  }
+  .card:active { transform:scale(.97); }
+  .card-title { font-size:13px; font-weight:600; margin-bottom:6px; line-height:1.35; }
+  .card-meta { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .badge {
+    font-size:10px; font-weight:700; padding:2px 7px; border-radius:5px;
+    text-transform:uppercase; letter-spacing:.3px;
+  }
+  .badge-high { background:var(--red-bg); color:var(--red); }
+  .badge-medium { background:var(--orange-bg); color:var(--orange); }
+  .badge-low { background:var(--blue-bg); color:var(--blue); }
+  .avatar-sm {
+    width:18px; height:18px; border-radius:50%;
+    display:inline-grid; place-items:center;
+    font-size:8px; font-weight:700; color:#fff;
+  }
+  .card-date { font-size:11px; color:var(--text2); margin-left:auto; }
+
+  /* ── List ── */
+  .search-bar {
+    display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;
+  }
+  .search-input {
+    flex:1; min-width:120px; background:var(--surface); border:1px solid var(--border);
+    color:var(--text); padding:8px 12px; border-radius:var(--radius-sm);
+    font-size:13px;
+  }
+  .search-input::placeholder { color:var(--text2); }
+  .search-input:focus { outline:none; border-color:var(--accent); }
+  .filter-chip {
+    background:var(--surface); border:1px solid var(--border);
+    color:var(--text); padding:6px 12px; border-radius:20px;
+    font-size:12px; cursor:pointer; white-space:nowrap;
+  }
+  .filter-chip.active { background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+
+  .task-item {
+    display:flex; align-items:center; gap:10px;
+    padding:12px; background:var(--surface);
+    border-radius:var(--radius-sm); margin-bottom:6px;
+    cursor:pointer;
+  }
+  .task-item:active { opacity:.8; }
+  .status-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .status-dot.backlog { background:var(--text2); }
+  .status-dot.todo { background:var(--blue); }
+  .status-dot.in-progress { background:var(--orange); }
+  .status-dot.review { background:var(--purple); }
+  .status-dot.done { background:var(--green); }
+  .task-info { flex:1; min-width:0; }
+  .task-info-title { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .task-info-sub { font-size:11px; color:var(--text2); margin-top:2px; }
+
+  /* ── Analytics ── */
+  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+  .stat-card {
+    background:var(--surface); border-radius:var(--radius); padding:14px;
+  }
+  .stat-label { font-size:11px; color:var(--text2); font-weight:600; text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+  .stat-value { font-size:24px; font-weight:800; }
+  .stat-value.green { color:var(--green); }
+  .stat-value.orange { color:var(--orange); }
+  .stat-value.red { color:var(--red); }
+  .stat-value.blue { color:var(--blue); }
+
+  .chart-card {
+    background:var(--surface); border-radius:var(--radius); padding:14px; margin-bottom:10px;
+  }
+  .chart-title { font-size:13px; font-weight:700; margin-bottom:12px; }
+  .bar-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .bar-label { font-size:11px; color:var(--text2); width:70px; text-align:right; white-space:nowrap; }
+  .bar-track { flex:1; height:20px; background:var(--bg); border-radius:5px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:5px; display:flex; align-items:center; padding-left:6px; font-size:10px; font-weight:700; color:#fff; transition:width .5s; }
+
+  .member-row {
+    display:flex; align-items:center; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .member-row:last-child { border:none; }
+  .member-avatar {
+    width:36px; height:36px; border-radius:50%;
+    display:grid; place-items:center; font-size:13px; font-weight:700; color:#fff; flex-shrink:0;
+  }
+  .member-info { flex:1; }
+  .member-name { font-size:13px; font-weight:600; }
+  .member-stat { font-size:11px; color:var(--text2); }
+  .mini-bar { height:4px; background:var(--bg); border-radius:2px; margin-top:4px; overflow:hidden; }
+  .mini-bar-fill { height:100%; border-radius:2px; }
+
+  /* ── FAB ── */
+  .fab {
+    position:fixed; bottom:calc(20px + env(safe-area-inset-bottom, 0px)); right:16px;
+    width:52px; height:52px; border-radius:50%;
+    background:var(--accent); color:var(--accent-text);
+    border:none; font-size:24px; cursor:pointer;
+    box-shadow:0 4px 16px rgba(0,0,0,.3);
+    display:grid; place-items:center; z-index:90;
+  }
+  .fab:active { transform:scale(.9); }
+
+  /* ── Bottom Sheet / Modal ── */
+  .sheet-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.5);
+    z-index:200; display:none; align-items:flex-end;
+    backdrop-filter:blur(2px);
+  }
+  .sheet-overlay.show { display:flex; }
+  .sheet {
+    background:var(--surface); width:100%;
+    border-radius:var(--radius) var(--radius) 0 0;
+    padding:20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    max-height:85vh; overflow-y:auto;
+    animation: slideUp .25s ease-out;
+  }
+  @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+  .sheet-handle {
+    width:36px; height:4px; background:var(--border); border-radius:2px;
+    margin:0 auto 16px;
+  }
+  .sheet h3 { font-size:16px; font-weight:700; margin-bottom:16px; }
+  .form-group { margin-bottom:12px; }
+  .form-label { font-size:12px; font-weight:600; color:var(--text2); margin-bottom:4px; display:block; }
+  .form-input, .form-textarea, .form-select {
+    width:100%; background:var(--bg); border:1px solid var(--border);
+    color:var(--text); padding:10px 12px; border-radius:var(--radius-sm);
+    font-size:14px; font-family:inherit;
+    -webkit-appearance:none;
+  }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { outline:none; border-color:var(--accent); }
+  .form-textarea { resize:vertical; min-height:60px; }
+  .btn-block {
+    width:100%; padding:12px; border:none; border-radius:var(--radius-sm);
+    font-size:14px; font-weight:700; cursor:pointer;
+    background:var(--accent); color:var(--accent-text);
+    margin-top:6px;
+  }
+  .btn-block:active { opacity:.8; }
+  .btn-danger { background:var(--red); color:#fff; margin-top:8px; }
+
+  /* ── Status picker in sheet ── */
+  .status-options { display:flex; gap:6px; flex-wrap:wrap; }
+  .status-opt {
+    padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600;
+    cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text);
+  }
+  .status-opt.selected { border-color:var(--accent); background:var(--accent); color:var(--accent-text); }
+
+  /* ── Loading ── */
+  .loading { text-align:center; padding:40px; color:var(--text2); }
+  .spinner {
+    width:24px; height:24px; border:3px solid var(--border);
+    border-top-color:var(--accent); border-radius:50%;
+    animation: spin .6s linear infinite; margin:0 auto 10px;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .empty { text-align:center; padding:40px 20px; color:var(--text2); font-size:14px; }
+
+  /* ── Card tag ── */
+  .card-tag {
+    display:inline-block; font-size:10px; font-weight:700;
+    padding:2px 8px; border-radius:5px; margin:4px 0 2px;
+    letter-spacing:.2px;
+  }
+
+  /* ── List tag ── */
+  .list-tag {
+    display:inline-block; font-size:10px; font-weight:700;
+    padding:2px 7px; border-radius:5px; margin:2px 0;
+    letter-spacing:.2px;
+  }
+
+  /* ── Drag over highlight ── */
+  .col-cards.drag-over {
+    background: var(--accent)15;
+    outline: 2px dashed var(--accent);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── Assignee filter select ── */
+  .filter-select {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); padding: 6px 12px; border-radius: 20px;
+    font-size: 12px; cursor: pointer; -webkit-appearance: none;
+    width: 100%; max-width: 220px;
+  }
+  .filter-select:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Comments ── */
+  .comment-item {
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .comment-item:last-child { border: none; }
+  .comment-header { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .comment-author { font-size:12px; font-weight:700; }
+  .comment-time { font-size:11px; color:var(--text2); }
+  .comment-text { font-size:13px; line-height:1.4; }
+  .comment-mention { color:var(--accent); font-weight:600; }
+
+  /* ── Activity log ── */
+  .activity-item {
+    display:flex; gap:8px; padding:6px 0;
+    border-bottom: 1px solid var(--border); font-size:12px;
+  }
+  .activity-item:last-child { border:none; }
+  .activity-icon { font-size:14px; flex-shrink:0; }
+  .activity-text { color:var(--text2); flex:1; }
+  .activity-text b { color:var(--text); }
+  .activity-time { font-size:10px; color:var(--text2); white-space:nowrap; }
+
+  /* ── Burndown chart ── */
+  .burndown-chart { position:relative; height:120px; margin:8px 0; }
+  .burndown-svg { width:100%; height:100%; }
+
+  /* ── My tasks toggle in kanban ── */
+  .kanban-toolbar {
+    display:flex; gap:6px; margin-bottom:8px; align-items:center;
+  }
+  .my-tasks-btn {
+    padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600;
+    cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text);
+    transition:.15s;
+  }
+  .my-tasks-btn.active { background:var(--accent); color:var(--accent-text); border-color:var(--accent); }
+
+  /* ── Estimated hours badge ── */
+  .est-badge {
+    font-size:10px; color:var(--text2); display:flex; align-items:center; gap:2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav">
+  <button class="nav-tab active" data-view="kanban">Kanban</button>
+  <button class="nav-tab" data-view="list">Список</button>
+  <button class="nav-tab" data-view="analytics">Команда</button>
+  <button class="nav-tab" data-view="me">Я</button>
+</div>
+
+<!-- Team selector -->
+<div class="team-bar">
+  <select id="teamSelect" onchange="onTeamChange()">
+    <option value="">Loading teams...</option>
+  </select>
+</div>
+
+<div class="content">
+  <!-- Kanban view -->
+  <div id="v-kanban" class="view active">
+    <div class="kanban-toolbar">
+      <button class="my-tasks-btn" id="myTasksBtn" onclick="toggleMyTasks()">👤 Мои задачи</button>
+    </div>
+    <div id="kanbanBoard" class="kanban">
+      <div class="loading"><div class="spinner"></div>Loading...</div>
+    </div>
+  </div>
+
+  <!-- List view -->
+  <div id="v-list" class="view">
+    <div class="search-bar">
+      <input type="text" class="search-input" placeholder="Поиск..." id="searchInput" oninput="renderList()">
+    </div>
+    <div id="filterChips" style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;overflow-x:auto"></div>
+    <div id="tagFilterChips" style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;overflow-x:auto"></div>
+    <div id="assigneeFilterWrap" style="margin-bottom:10px"></div>
+    <div id="listContainer"></div>
+  </div>
+
+  <!-- Analytics view -->
+  <div id="v-analytics" class="view">
+    <div id="analyticsContainer">
+      <div class="loading"><div class="spinner"></div>Загрузка...</div>
+    </div>
+  </div>
+
+  <!-- Personal view -->
+  <div id="v-me" class="view">
+    <div id="meContainer">
+      <div class="loading"><div class="spinner"></div>Загрузка...</div>
+    </div>
+  </div>
+</div>
+
+<!-- FAB: new task -->
+<button class="fab" onclick="openNewTask()">+</button>
+
+<!-- Task sheet (create/edit) -->
+<div class="sheet-overlay" id="taskSheet" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3 id="sheetTitle">New Task</h3>
+    <input type="hidden" id="editTaskId">
+    <div class="form-group">
+      <label class="form-label">Название</label>
+      <input type="text" class="form-input" id="fTitle" placeholder="Что нужно сделать?">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Описание</label>
+      <textarea class="form-textarea" id="fDesc" placeholder="Детали..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Статус</label>
+      <div class="status-options" id="fStatusOptions"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Приоритет</label>
+      <div class="status-options" id="fPriorityOptions"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Исполнитель</label>
+      <select class="form-select" id="fAssignee"><option value="">Без исполнителя</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Тег проекта</label>
+      <div style="display:flex;gap:6px">
+        <select class="form-select" id="fTag" style="flex:1"><option value="">Без тега</option></select>
+        <button class="btn-block" style="width:auto;padding:10px 14px;margin:0" onclick="openNewTag()">+</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Дедлайн (дата и время)</label>
+      <input type="datetime-local" class="form-input" id="fDeadline">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Оценка времени (часов)</label>
+      <input type="number" class="form-input" id="fEstHours" placeholder="Например: 4" min="0" step="0.5">
+    </div>
+    <button class="btn-block" onclick="saveTask()">Сохранить</button>
+    <button class="btn-block btn-danger" id="deleteBtn" style="display:none" onclick="deleteTask()">Удалить задачу</button>
+    <!-- Comments & Activity (shown only in edit mode) -->
+    <div id="taskExtras" style="display:none;margin-top:16px">
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="filter-chip active" id="tabComments" onclick="switchTaskTab('comments')" style="flex:1;text-align:center">💬 Комментарии</button>
+        <button class="filter-chip" id="tabActivity" onclick="switchTaskTab('activity')" style="flex:1;text-align:center">📋 История</button>
+      </div>
+      <div id="commentsSection">
+        <div id="commentsList" style="margin-bottom:10px;max-height:200px;overflow-y:auto"></div>
+        <div style="display:flex;gap:6px">
+          <input type="text" class="form-input" id="commentInput" placeholder="Комментарий... @упомяни кого-то" style="flex:1">
+          <button class="btn-block" style="width:auto;padding:10px 14px;margin:0" onclick="submitComment()">→</button>
+        </div>
+      </div>
+      <div id="activitySection" style="display:none">
+        <div id="activityList" style="max-height:250px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New tag sheet -->
+<div class="sheet-overlay" id="tagSheet" onclick="if(event.target===this)closeTagSheet()">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3>Новый тег</h3>
+    <div class="form-group">
+      <label class="form-label">Название тега</label>
+      <input type="text" class="form-input" id="fTagName" placeholder="Например: Backend, Design">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Цвет</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="tagColorPicker"></div>
+    </div>
+    <button class="btn-block" onclick="saveNewTag()">Создать тег</button>
+  </div>
+</div>
+
+<!-- Recurring tasks sheet -->
+<div class="sheet-overlay" id="recurringSheet" onclick="if(event.target===this)closeRecurringSheet()">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h3>Повторяющаяся задача</h3>
+    <div class="form-group">
+      <label class="form-label">Название</label>
+      <input type="text" class="form-input" id="rTitle" placeholder="Еженедельный отчёт">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Повторение</label>
+      <select class="form-select" id="rRecurrence" style="width:100%;max-width:100%;border-radius:8px" onchange="updateRecurrenceDay()">
+        <option value="daily">Каждый день</option>
+        <option value="weekly" selected>Каждую неделю</option>
+        <option value="monthly">Каждый месяц</option>
+      </select>
+    </div>
+    <div class="form-group" id="rDayGroup">
+      <label class="form-label">День недели</label>
+      <select class="form-select" id="rDay" style="width:100%;max-width:100%;border-radius:8px">
+        <option value="0">Понедельник</option>
+        <option value="1">Вторник</option>
+        <option value="2">Среда</option>
+        <option value="3">Четверг</option>
+        <option value="4">Пятница</option>
+        <option value="5">Суббота</option>
+        <option value="6">Воскресенье</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Исполнитель</label>
+      <select class="form-select" id="rAssignee" style="width:100%;max-width:100%;border-radius:8px">
+        <option value="">Без исполнителя</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Приоритет</label>
+      <div class="status-options" id="rPriorityOptions"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Оценка времени (часов)</label>
+      <input type="number" class="form-input" id="rEstHours" placeholder="4" min="0" step="0.5">
+    </div>
+    <button class="btn-block" onclick="saveRecurring()">Создать</button>
+  </div>
+</div>
+
+<script>
+if (tg) {
+  tg.ready();
+  tg.expand();
+  tg.enableClosingConfirmation();
+}
+
+const initData = tg?.initData || '';
+const API = window.location.origin;
+
+const STATUSES = [
+  { id:'backlog', label:'Backlog', color:'#9595b0' },
+  { id:'todo', label:'To Do', color:'#74b9ff' },
+  { id:'in-progress', label:'В работе', color:'#fdcb6e' },
+  { id:'review', label:'Ревью', color:'#a29bfe' },
+  { id:'done', label:'Готово', color:'#00cec9' },
+];
+const PRIORITIES = [
+  { id:'low', label:'Низкий', color:'#74b9ff' },
+  { id:'medium', label:'Средний', color:'#fdcb6e' },
+  { id:'high', label:'Высокий', color:'#ff7675' },
+];
+const TAG_COLORS = ['#6c5ce7','#00cec9','#fd79a8','#fdcb6e','#e17055','#74b9ff','#a29bfe','#55efc4','#636e72'];
+const MEMBER_COLORS = ['#6c5ce7','#00cec9','#fd79a8','#fdcb6e','#e17055','#74b9ff','#a29bfe','#55efc4'];
+
+let teams = [], currentTeamId = null, tasks = [], members = [], tags = [];
+let currentFilter = 'all', currentTagFilter = null, currentAssigneeFilter = null;
+let selectedStatus = 'todo', selectedPriority = 'medium', selectedTagColor = TAG_COLORS[0];
+let showMyTasksOnly = false;
+let currentUserId = null; // set from Telegram initData
+let rSelectedPriority = 'medium';
+
+// Extract current user id from initData
+try {
+  const params = new URLSearchParams(window.Telegram?.WebApp?.initData || '');
+  const userStr = params.get('user');
+  if (userStr) {
+    const u = JSON.parse(decodeURIComponent(userStr));
+    currentUserId = u.id;
+  }
+} catch(e) {}
+
+// ── API helpers ──
+async function api(path, method='GET', body=null) {
+  const opts = {
+    method,
+    headers: {
+      'Authorization': `tma ${initData}`,
+      'Content-Type': 'application/json',
+    },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API}${path}`, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function init() {
+  try {
+    teams = await api('/api/teams');
+    const sel = document.getElementById('teamSelect');
+    if (!teams.length) { sel.innerHTML = '<option value="">Нет команд — создай в боте</option>'; return; }
+    sel.innerHTML = teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+    currentTeamId = teams[0].id;
+    await loadTeamData();
+  } catch (e) {
+    console.error(e);
+    const board = document.getElementById('kanbanBoard');
+    if (board) board.innerHTML = `<div class="empty" style="padding:20px">
+      ❌ Ошибка загрузки: ${esc(e.message)}<br><br>
+      <small>Открой из Telegram, а не из браузера</small>
+    </div>`;
+  }
+}
+
+async function onTeamChange() {
+  currentTeamId = parseInt(document.getElementById('teamSelect').value);
+  if (currentTeamId) await loadTeamData();
+}
+
+async function loadTeamData() {
+  [tasks, members, tags] = await Promise.all([
+    api(`/api/teams/${currentTeamId}/tasks`),
+    api(`/api/teams/${currentTeamId}/members`),
+    api(`/api/teams/${currentTeamId}/tags`),
+  ]);
+  renderAll();
+}
+
+// ── View switching ──
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(`v-${tab.dataset.view}`).classList.add('active');
+    if (tab.dataset.view === 'analytics') renderAnalytics();
+    if (tab.dataset.view === 'me') renderMe();
+  });
+});
+
+// ── Kanban ──
+function renderKanban() {
+  const board = document.getElementById('kanbanBoard');
+  const btn = document.getElementById('myTasksBtn');
+  if (btn) btn.classList.toggle('active', showMyTasksOnly);
+
+  // Filter tasks if "my tasks" is on
+  const visibleTasks = showMyTasksOnly
+    ? tasks.filter(t => {
+        const m = members.find(m => m.telegram_id === currentUserId);
+        return m && t.assignee_id === m.id;
+      })
+    : tasks;
+
+  board.innerHTML = STATUSES.map(s => {
+    const colTasks = visibleTasks.filter(t => t.status === s.id);
+    return `<div class="kanban-col" data-status="${s.id}">
+      <div class="col-header">
+        <span class="col-title" style="color:${s.color}">${s.label}</span>
+        <span class="col-count">${colTasks.length}</span>
+      </div>
+      <div class="col-cards" data-status="${s.id}"
+           ondragover="onDragOver(event)" ondrop="onDrop(event)"
+           ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)">
+        ${colTasks.map(t => cardHTML(t)).join('') || '<div style="text-align:center;padding:12px;color:var(--text2);font-size:12px">Нет задач</div>'}
+      </div>
+    </div>`;
+  }).join('');
+  initTouchDrag();
+}
+
+function toggleMyTasks() {
+  showMyTasksOnly = !showMyTasksOnly;
+  renderKanban();
+}
+
+function cardHTML(t) {
+  const pCls = t.priority==='high'?'badge-high':t.priority==='medium'?'badge-medium':'badge-low';
+  const m = members.find(m => m.id === t.assignee_id);
+  const name = m?.first_name || t.assignee_name || '';
+  const initials = name ? name.slice(0,2).toUpperCase() : '?';
+  const ci = members.indexOf(m);
+  const col = MEMBER_COLORS[ci >= 0 ? ci % MEMBER_COLORS.length : 0];
+  const dl = t.deadline ? fmtDeadline(t.deadline) : '';
+  const tagBadge = t.tag_name
+    ? `<span class="card-tag" style="background:${t.tag_color}30;color:${t.tag_color};border:1px solid ${t.tag_color}60">🏷 ${esc(t.tag_name)}</span>`
+    : '';
+  const estBadge = t.estimated_hours
+    ? `<span class="est-badge">⏱ ${t.estimated_hours}ч</span>`
+    : '';
+  return `<div class="card" draggable="true" data-id="${t.id}"
+    ondragstart="onDragStart(event,${t.id})" ondragend="onDragEnd(event)"
+    onclick="openEditTask(${t.id})">
+    <div class="card-title">${esc(t.title)}</div>
+    ${tagBadge}
+    <div class="card-meta">
+      <span class="badge ${pCls}">${t.priority}</span>
+      ${name ? `<span class="avatar-sm" style="background:${col}" title="${esc(name)}">${initials}</span>` : ''}
+      ${name ? `<span style="font-size:11px;color:var(--text2)">${esc(name)}</span>` : ''}
+      ${estBadge}
+      ${dl ? `<span class="card-date">⏰ ${dl}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Drag & Drop (mouse) ──
+let dragTaskId = null;
+function onDragStart(e, id) {
+  dragTaskId = id; e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.style.opacity = '0.5';
+}
+function onDragEnd(e) {
+  e.currentTarget.style.opacity = '';
+  document.querySelectorAll('.col-cards').forEach(c => c.classList.remove('drag-over'));
+}
+function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function onDragEnter(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function onDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+}
+async function onDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const newStatus = e.currentTarget.dataset.status;
+  if (!dragTaskId || !newStatus) return;
+  const task = tasks.find(t => t.id === dragTaskId);
+  if (!task || task.status === newStatus) return;
+  try {
+    await api(`/api/tasks/${dragTaskId}`, 'PATCH', { status: newStatus });
+    await loadTeamData();
+    tg?.HapticFeedback?.impactOccurred('light');
+  } catch(err) { console.error(err); }
+  dragTaskId = null;
+}
+
+// ── Touch Drag (mobile) ──
+let touchTask = null, touchClone = null, touchOffX = 0, touchOffY = 0;
+function initTouchDrag() {
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('touchstart', touchStart, { passive: false });
+    card.addEventListener('touchmove', touchMove, { passive: false });
+    card.addEventListener('touchend', touchEnd);
+  });
+}
+function touchStart(e) {
+  const card = e.currentTarget;
+  touchTask = parseInt(card.dataset.id);
+  const rect = card.getBoundingClientRect();
+  const touch = e.touches[0];
+  touchOffX = touch.clientX - rect.left;
+  touchOffY = touch.clientY - rect.top;
+  touchClone = card.cloneNode(true);
+  touchClone.style.cssText = `position:fixed;z-index:9999;width:${rect.width}px;opacity:.85;pointer-events:none;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.4);`;
+  touchClone.style.left = (touch.clientX - touchOffX) + 'px';
+  touchClone.style.top = (touch.clientY - touchOffY) + 'px';
+  document.body.appendChild(touchClone);
+  card.style.opacity = '0.3';
+}
+function touchMove(e) {
+  if (!touchClone) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  touchClone.style.left = (touch.clientX - touchOffX) + 'px';
+  touchClone.style.top = (touch.clientY - touchOffY) + 'px';
+  document.querySelectorAll('.col-cards').forEach(c => c.classList.remove('drag-over'));
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  const col = el?.closest('.col-cards');
+  if (col) col.classList.add('drag-over');
+}
+async function touchEnd(e) {
+  if (!touchClone) return;
+  const touch = e.changedTouches[0];
+  touchClone.remove(); touchClone = null;
+  document.querySelectorAll('.col-cards').forEach(c => c.classList.remove('drag-over'));
+  document.querySelectorAll('.card').forEach(c => c.style.opacity = '');
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  const col = el?.closest('.col-cards');
+  if (!col || !touchTask) { touchTask = null; return; }
+  const newStatus = col.dataset.status;
+  const task = tasks.find(t => t.id === touchTask);
+  if (task && task.status !== newStatus) {
+    try {
+      await api(`/api/tasks/${touchTask}`, 'PATCH', { status: newStatus });
+      await loadTeamData();
+      tg?.HapticFeedback?.impactOccurred('light');
+    } catch(err) { console.error(err); }
+  }
+  touchTask = null;
+}
+
+// ── List ──
+function renderList() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+
+  // Status filter chips
+  const chips = document.getElementById('filterChips');
+  chips.innerHTML = [
+    {id:'all',label:'Все'},
+    ...STATUSES.map(s=>({id:s.id,label:s.label}))
+  ].map(f => `<span class="filter-chip ${currentFilter===f.id?'active':''}" onclick="setFilter('${f.id}')">${f.label}</span>`).join('');
+
+  // Tag filter chips
+  const tagChips = document.getElementById('tagFilterChips');
+  if (tags.length) {
+    tagChips.innerHTML = `<span class="filter-chip ${!currentTagFilter?'active':''}" onclick="setTagFilter(null)">Все теги</span>` +
+      tags.map(t => `<span class="filter-chip ${currentTagFilter===t.id?'active':''}" style="${currentTagFilter===t.id?`background:${t.color};border-color:${t.color};color:#fff`:''}" onclick="setTagFilter(${t.id})">🏷 ${esc(t.name)}</span>`).join('');
+  } else {
+    tagChips.innerHTML = '';
+  }
+
+  // Assignee filter — native searchable select
+  const assigneeWrap = document.getElementById('assigneeFilterWrap');
+  if (assigneeWrap && members.length) {
+    assigneeWrap.innerHTML = `<select class="filter-select" id="assigneeFilter" onchange="setAssigneeFilter(this.value)">
+      <option value="">👤 Все исполнители</option>
+      ${members.map(m => `<option value="${m.id}" ${currentAssigneeFilter===m.id?'selected':''}>${esc(m.first_name||m.username||'User')}</option>`).join('')}
+    </select>`;
+  }
+
+  let filtered = tasks.filter(t => {
+    if (q && !t.title.toLowerCase().includes(q) && !(t.description||'').toLowerCase().includes(q)) return false;
+    if (currentFilter !== 'all' && t.status !== currentFilter) return false;
+    if (currentTagFilter && t.tag_id !== currentTagFilter) return false;
+    if (currentAssigneeFilter && t.assignee_id !== currentAssigneeFilter) return false;
+    return true;
+  });
+
+  const container = document.getElementById('listContainer');
+  if (!filtered.length) { container.innerHTML = '<div class="empty">Задач не найдено</div>'; return; }
+
+  container.innerHTML = filtered.map(t => {
+    const m = members.find(m => m.id === t.assignee_id);
+    const name = m?.first_name || t.assignee_name || 'Без исполнителя';
+    const dl = t.deadline ? fmtDeadline(t.deadline) : '';
+    const tagBadge = t.tag_name
+      ? `<span class="list-tag" style="background:${t.tag_color}30;color:${t.tag_color};border:1px solid ${t.tag_color}60">🏷 ${esc(t.tag_name)}</span>`
+      : '';
+    return `<div class="task-item" onclick="openEditTask(${t.id})">
+      <span class="status-dot ${t.status}"></span>
+      <div class="task-info">
+        <div class="task-info-title">${esc(t.title)}</div>
+        ${tagBadge}
+        <div class="task-info-sub">👤 ${name}${dl ? ' • ⏰ ' + dl : ''}</div>
+      </div>
+      <span class="badge badge-${t.priority}" style="flex-shrink:0">${t.priority}</span>
+    </div>`;
+  }).join('');
+}
+
+function setFilter(f) { currentFilter = f; renderList(); }
+function setTagFilter(id) { currentTagFilter = id; renderList(); }
+function setAssigneeFilter(val) { currentAssigneeFilter = val ? parseInt(val) : null; renderList(); }
+
+// ── Analytics ──
+async function renderAnalytics() {
+  try {
+    const stats = await api(`/api/teams/${currentTeamId}/stats`);
+    const c = document.getElementById('analyticsContainer');
+    const byStatus = stats.by_status || {};
+    const maxCount = Math.max(...STATUSES.map(s => byStatus[s.id] || 0), 1);
+
+    const statusBars = STATUSES.map(s => {
+      const cnt = byStatus[s.id] || 0;
+      return `<div class="bar-row">
+        <span class="bar-label">${s.label}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${cnt/maxCount*100}%;background:${s.color}">${cnt}</div></div>
+      </div>`;
+    }).join('');
+
+    const memberRows = (stats.members || []).map((m, i) => {
+      const pct = m.total ? Math.round(m.done / m.total * 100) : 0;
+      const col = MEMBER_COLORS[i % MEMBER_COLORS.length];
+      return `<div class="member-row">
+        <div class="member-avatar" style="background:${col}">${(m.first_name||'?').slice(0,2).toUpperCase()}</div>
+        <div class="member-info">
+          <div class="member-name">${esc(m.first_name||'Unknown')}</div>
+          <div class="member-stat">${m.done}/${m.total} выполнено</div>
+          <div class="mini-bar"><div class="mini-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    const byTag = stats.by_tag || [];
+    const maxT = Math.max(...byTag.map(x => x.cnt), 1);
+    const tagRows = byTag.length ? byTag.map(t =>
+      `<div class="bar-row">
+        <span class="bar-label" style="color:${t.color}">${esc(t.name)}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${t.cnt/maxT*100}%;background:${t.color}">${t.cnt}</div></div>
+      </div>`
+    ).join('') : '<div class="empty" style="padding:10px">Нет тегов</div>';
+
+    c.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Всего</div><div class="stat-value">${stats.total}</div></div>
+        <div class="stat-card"><div class="stat-label">Готово</div><div class="stat-value green">${byStatus.done||0}</div></div>
+        <div class="stat-card"><div class="stat-label">Процент</div><div class="stat-value blue">${stats.completion_rate}%</div></div>
+        <div class="stat-card"><div class="stat-label">Просрочено</div><div class="stat-value ${stats.overdue?'red':'green'}">${stats.overdue}</div></div>
+      </div>
+      <div class="chart-card"><div class="chart-title">По статусам</div>${statusBars}</div>
+      <div class="chart-card"><div class="chart-title">По тегам проектов</div>${tagRows}</div>
+      <div class="chart-card"><div class="chart-title">Загрузка команды</div>${memberRows||'<div class="empty">Нет участников</div>'}</div>
+      <div class="chart-card" id="burndownCard"><div class="chart-title">📉 Burndown (14 дней)</div><div class="loading" style="padding:20px"><div class="spinner"></div></div></div>
+      <div class="chart-card" id="timeInStatusCard"><div class="chart-title">⏱ Время в статусе</div><div class="loading" style="padding:20px"><div class="spinner"></div></div></div>
+      <div class="chart-card">
+        <div class="chart-title">🔁 Повторяющиеся задачи</div>
+        <div id="recurringList"></div>
+        <button class="btn-block" style="margin-top:8px" onclick="openRecurringSheet()">+ Добавить</button>
+      </div>
+    `;
+    // Load burndown and time-in-status async
+    loadBurndown();
+    loadTimeInStatus();
+    loadRecurringList();
+  } catch(e) { console.error(e); }
+}
+
+async function loadBurndown() {
+  try {
+    const data = await api(`/api/teams/${currentTeamId}/burndown?days=14`);
+    const days = data.days || [];
+    if (!days.length) return;
+    const maxOpen = Math.max(...days.map(d => d.open), 1);
+    const w = 100 / days.length;
+    const points = days.map((d, i) => `${i * w + w/2},${100 - (d.open / maxOpen * 90)}`).join(' ');
+    const donePoints = days.map((d, i) => `${i * w + w/2},${100 - (d.done / maxOpen * 90)}`).join(' ');
+    const card = document.getElementById('burndownCard');
+    if (!card) return;
+    card.innerHTML = `<div class="chart-title">📉 Burndown (14 дней)</div>
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100px;display:block">
+        <polyline points="${points}" fill="none" stroke="var(--red)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>
+        <polyline points="${donePoints}" fill="none" stroke="var(--green)" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-dasharray="3,2"/>
+      </svg>
+      <div style="display:flex;gap:12px;font-size:11px;color:var(--text2);margin-top:4px">
+        <span><span style="color:var(--red)">—</span> Открытые</span>
+        <span><span style="color:var(--green)">- -</span> Закрытые/день</span>
+      </div>`;
+  } catch(e) { console.error(e); }
+}
+
+async function loadTimeInStatus() {
+  try {
+    const data = await api(`/api/teams/${currentTeamId}/time-in-status`);
+    const card = document.getElementById('timeInStatusCard');
+    if (!card) return;
+    if (!data.length) {
+      card.innerHTML = '<div class="chart-title">⏱ Время в статусе</div><div class="empty" style="padding:10px">Нет данных</div>';
+      return;
+    }
+    const maxH = Math.max(...data.map(d => d.avg_hours), 1);
+    const bars = data.map(s => {
+      const st = STATUSES.find(x => x.id === s.status);
+      const color = st?.color || 'var(--accent)';
+      return `<div class="bar-row">
+        <span class="bar-label" style="color:${color}">${st?.label || s.status}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${s.avg_hours/maxH*100}%;background:${color}">${s.avg_hours}ч</div></div>
+      </div>`;
+    }).join('');
+    card.innerHTML = `<div class="chart-title">⏱ Среднее время в статусе</div>${bars}`;
+  } catch(e) { console.error(e); }
+}
+
+async function loadRecurringList() {
+  try {
+    const recurring = await api(`/api/teams/${currentTeamId}/recurring`);
+    const el = document.getElementById('recurringList');
+    if (!el) return;
+    if (!recurring.length) {
+      el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:8px 0">Нет повторяющихся задач</div>';
+      return;
+    }
+    const recLabels = { daily:'Каждый день', weekly:'Каждую неделю', monthly:'Каждый месяц' };
+    el.innerHTML = recurring.map(r => `
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${esc(r.title)}</div>
+          <div style="font-size:11px;color:var(--text2)">${recLabels[r.recurrence]||r.recurrence} • ${r.assignee_name||'Без исполнителя'}</div>
+        </div>
+        <button onclick="deleteRecurring(${r.id})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:16px">✕</button>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function deleteRecurring(id) {
+  try {
+    await api(`/api/recurring/${id}`, 'DELETE');
+    await loadRecurringList();
+  } catch(e) { tg?.showAlert(e.message || 'Ошибка'); }
+}
+
+// ── Personal efficiency ──
+async function renderMe() {
+  try {
+    const [eff, myTasks] = await Promise.all([
+      api('/api/me/efficiency'),
+      api('/api/me/tasks'),
+    ]);
+    const c = document.getElementById('meContainer');
+    const rate = eff.completion_rate || 0;
+    const rateColor = rate >= 80 ? 'var(--green)' : rate >= 50 ? 'var(--orange)' : 'var(--red)';
+
+    const history = (eff.history || []).slice().reverse();
+    const maxH = Math.max(...history.map(w => w.completed || 0), 1);
+    const historyBars = history.map(w => {
+      const label = w.week_start ? w.week_start.slice(5) : '';
+      const completed = w.completed || 0;
+      const assigned = w.assigned || 0;
+      const pct = assigned ? Math.round(completed / assigned * 100) : 0;
+      return `<div class="bar-row">
+        <span class="bar-label">${label}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${completed/maxH*100}%;background:var(--accent)">${completed}</div></div>
+        <span style="font-size:10px;color:var(--text2);width:30px;text-align:right">${pct}%</span>
+      </div>`;
+    }).join('');
+
+    const myTaskRows = myTasks.slice(0, 10).map(t => {
+      const dl = t.deadline ? fmtDeadline(t.deadline) : '';
+      const tagBadge = t.tag_name ? `<span style="color:${t.tag_color};font-size:10px"> 🏷${esc(t.tag_name)}</span>` : '';
+      return `<div class="task-item" onclick="switchToTask(${t.id})">
+        <span class="status-dot ${t.status}"></span>
+        <div class="task-info">
+          <div class="task-info-title">${esc(t.title)}${tagBadge}</div>
+          <div class="task-info-sub">${t.team_name||''}${dl ? ' • ⏰ ' + dl : ''}</div>
+        </div>
+        <span class="badge badge-${t.priority}" style="flex-shrink:0">${t.priority}</span>
+      </div>`;
+    }).join('');
+
+    c.innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Эта неделя</div><div class="stat-value">${eff.completed_this_week}/${eff.assigned_this_week}</div></div>
+        <div class="stat-card"><div class="stat-label">Процент</div><div class="stat-value" style="color:${rateColor}">${rate}%</div></div>
+        <div class="stat-card"><div class="stat-label">Среднее 4 нед.</div><div class="stat-value blue">${eff.avg_rate_4w}%</div></div>
+        <div class="stat-card"><div class="stat-label">Всего выполнено</div><div class="stat-value green">${eff.total_completed_alltime}</div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📈 История по неделям</div>
+        ${historyBars || '<div class="empty" style="padding:10px">Нет данных пока</div>'}
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">⚡ Мои активные задачи (${myTasks.length})</div>
+        ${myTaskRows || '<div class="empty" style="padding:10px">🎉 Нет активных задач!</div>'}
+      </div>
+    `;
+  } catch(e) { console.error(e); }
+}
+
+function switchToTask(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-view="list"]').classList.add('active');
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('v-list').classList.add('active');
+  openEditTask(id);
+}
+
+// ── Task sheet ──
+function buildPickerOptions(container, items, selectedId) {
+  const el = document.getElementById(container);
+  el.innerHTML = items.map(i =>
+    `<span class="status-opt ${i.id===selectedId?'selected':''}"
+          style="${i.id===selectedId?`border-color:${i.color};background:${i.color}20`:''}"
+          onclick="pickOption('${container}','${i.id}')">${i.label}</span>`
+  ).join('');
+}
+
+function pickOption(container, id) {
+  if (container === 'fStatusOptions') selectedStatus = id;
+  if (container === 'fPriorityOptions') selectedPriority = id;
+  const items = container === 'fStatusOptions' ? STATUSES : PRIORITIES;
+  buildPickerOptions(container, items, id);
+}
+
+function populateAssignees(currentId) {
+  const sel = document.getElementById('fAssignee');
+  sel.innerHTML = '<option value="">Без исполнителя</option>' +
+    members.map(m => `<option value="${m.id}" ${m.id==currentId?'selected':''}>${esc(m.first_name||m.username||'User')}</option>`).join('');
+}
+
+function populateTags(currentId) {
+  const sel = document.getElementById('fTag');
+  sel.innerHTML = '<option value="">Без тега</option>' +
+    tags.map(t => `<option value="${t.id}" ${t.id==currentId?'selected':''}>${esc(t.name)}</option>`).join('');
+}
+
+function openNewTask() {
+  document.getElementById('sheetTitle').textContent = 'Новая задача';
+  document.getElementById('editTaskId').value = '';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fDesc').value = '';
+  document.getElementById('fDeadline').value = '';
+  document.getElementById('fEstHours').value = '';
+  document.getElementById('deleteBtn').style.display = 'none';
+  document.getElementById('taskExtras').style.display = 'none';
+  selectedStatus = 'todo'; selectedPriority = 'medium';
+  buildPickerOptions('fStatusOptions', STATUSES, selectedStatus);
+  buildPickerOptions('fPriorityOptions', PRIORITIES, selectedPriority);
+  populateAssignees(null);
+  populateTags(null);
+  document.getElementById('taskSheet').classList.add('show');
+}
+
+function openEditTask(id) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  document.getElementById('sheetTitle').textContent = 'Редактировать';
+  document.getElementById('editTaskId').value = id;
+  document.getElementById('fTitle').value = t.title;
+  document.getElementById('fDesc').value = t.description || '';
+  document.getElementById('fDeadline').value = t.deadline ? t.deadline.replace(' ', 'T').slice(0,16) : '';
+  document.getElementById('fEstHours').value = t.estimated_hours || '';
+  document.getElementById('deleteBtn').style.display = 'block';
+  document.getElementById('taskExtras').style.display = 'block';
+  selectedStatus = t.status; selectedPriority = t.priority;
+  buildPickerOptions('fStatusOptions', STATUSES, selectedStatus);
+  buildPickerOptions('fPriorityOptions', PRIORITIES, selectedPriority);
+  populateAssignees(t.assignee_id);
+  populateTags(t.tag_id);
+  document.getElementById('taskSheet').classList.add('show');
+  // Load comments and activity
+  switchTaskTab('comments');
+  loadComments(id);
+}
+
+function closeSheet() {
+  document.getElementById('taskSheet').classList.remove('show');
+  document.getElementById('taskExtras').style.display = 'none';
+}
+
+async function saveTask() {
+  const title = document.getElementById('fTitle').value.trim();
+  if (!title) { tg?.showAlert('Введи название'); return; }
+  const dlRaw = document.getElementById('fDeadline').value;
+  const deadline = dlRaw ? dlRaw.replace('T', ' ') : null;
+  const estHours = parseFloat(document.getElementById('fEstHours').value) || 0;
+  const data = {
+    title,
+    description: document.getElementById('fDesc').value.trim(),
+    status: selectedStatus,
+    priority: selectedPriority,
+    assignee_id: parseInt(document.getElementById('fAssignee').value) || null,
+    tag_id: parseInt(document.getElementById('fTag').value) || null,
+    deadline,
+    estimated_hours: estHours,
+  };
+  const editId = document.getElementById('editTaskId').value;
+  try {
+    if (editId) { await api(`/api/tasks/${editId}`, 'PATCH', data); }
+    else { await api(`/api/teams/${currentTeamId}/tasks`, 'POST', data); }
+    closeSheet();
+    await loadTeamData();
+    tg?.HapticFeedback?.notificationOccurred('success');
+  } catch(e) { tg?.showAlert(e.message || 'Ошибка сохранения'); }
+}
+
+async function deleteTask() {
+  const editId = document.getElementById('editTaskId').value;
+  if (!editId) return;
+  const doDelete = async () => {
+    await api(`/api/tasks/${editId}`, 'DELETE');
+    closeSheet();
+    await loadTeamData();
+    tg?.HapticFeedback?.notificationOccurred('warning');
+  };
+  if (tg) { tg.showConfirm('Удалить задачу?', ok => { if (ok) doDelete(); }); }
+  else { if (confirm('Удалить задачу?')) doDelete(); }
+}
+
+// ── Comments & Activity ──
+function switchTaskTab(tab) {
+  document.getElementById('commentsSection').style.display = tab === 'comments' ? 'block' : 'none';
+  document.getElementById('activitySection').style.display = tab === 'activity' ? 'block' : 'none';
+  document.getElementById('tabComments').classList.toggle('active', tab === 'comments');
+  document.getElementById('tabActivity').classList.toggle('active', tab === 'activity');
+  if (tab === 'activity') {
+    const taskId = document.getElementById('editTaskId').value;
+    if (taskId) loadActivity(taskId);
+  }
+}
+
+async function loadComments(taskId) {
+  try {
+    const comments = await api(`/api/tasks/${taskId}/comments`);
+    const el = document.getElementById('commentsList');
+    if (!comments.length) {
+      el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:8px 0">Нет комментариев</div>';
+      return;
+    }
+    el.innerHTML = comments.map(c => {
+      const author = c.first_name || c.username || 'User';
+      const time = new Date(c.created_at).toLocaleString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      // Highlight @mentions
+      const text = esc(c.text).replace(/@(\w+)/g, '<span class="comment-mention">@$1</span>');
+      return `<div class="comment-item">
+        <div class="comment-header">
+          <span class="comment-author">${esc(author)}</span>
+          <span class="comment-time">${time}</span>
+        </div>
+        <div class="comment-text">${text}</div>
+      </div>`;
+    }).join('');
+    el.scrollTop = el.scrollHeight;
+  } catch(e) { console.error(e); }
+}
+
+async function submitComment() {
+  const taskId = document.getElementById('editTaskId').value;
+  const input = document.getElementById('commentInput');
+  const text = input.value.trim();
+  if (!text || !taskId) return;
+  try {
+    await api(`/api/tasks/${taskId}/comments`, 'POST', { text });
+    input.value = '';
+    await loadComments(taskId);
+    tg?.HapticFeedback?.impactOccurred('light');
+  } catch(e) { tg?.showAlert(e.message || 'Ошибка'); }
+}
+
+// Submit comment on Enter
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('commentInput');
+  if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') submitComment(); });
+});
+
+async function loadActivity(taskId) {
+  try {
+    const activity = await api(`/api/tasks/${taskId}/activity`);
+    const el = document.getElementById('activityList');
+    if (!activity.length) {
+      el.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:8px 0">Нет изменений</div>';
+      return;
+    }
+    const actionLabels = {
+      'status_changed': '🔄 изменил статус',
+      'assignee_changed': '👤 изменил исполнителя',
+      'deadline_changed': '⏰ изменил дедлайн',
+      'priority_changed': '⚡ изменил приоритет',
+      'title_changed': '✏️ изменил название',
+      'commented': '💬 прокомментировал',
+      'tag_id_changed': '🏷 изменил тег',
+      'estimated_hours_changed': '⏱ изменил оценку',
+    };
+    el.innerHTML = activity.map(a => {
+      const author = a.first_name || a.username || 'User';
+      const label = actionLabels[a.action] || a.action;
+      const time = new Date(a.created_at).toLocaleString('ru-RU', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      const detail = a.old_value && a.new_value && a.action !== 'commented'
+        ? ` <span style="color:var(--text2)">${esc(a.old_value)} → ${esc(a.new_value)}</span>`
+        : '';
+      return `<div class="activity-item">
+        <span class="activity-icon">${label.split(' ')[0]}</span>
+        <span class="activity-text"><b>${esc(author)}</b> ${label.slice(2)}${detail}</span>
+        <span class="activity-time">${time}</span>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ── Recurring Tasks ──
+function openRecurringSheet() {
+  document.getElementById('rTitle').value = '';
+  document.getElementById('rEstHours').value = '';
+  document.getElementById('rRecurrence').value = 'weekly';
+  updateRecurrenceDay();
+  // Populate assignees
+  const sel = document.getElementById('rAssignee');
+  sel.innerHTML = '<option value="">Без исполнителя</option>' +
+    members.map(m => `<option value="${m.id}">${esc(m.first_name||m.username||'User')}</option>`).join('');
+  rSelectedPriority = 'medium';
+  buildPickerOptions('rPriorityOptions', PRIORITIES, rSelectedPriority);
+  document.getElementById('recurringSheet').classList.add('show');
+}
+
+function closeRecurringSheet() { document.getElementById('recurringSheet').classList.remove('show'); }
+
+function updateRecurrenceDay() {
+  const rec = document.getElementById('rRecurrence').value;
+  const grp = document.getElementById('rDayGroup');
+  if (rec === 'daily') { grp.style.display = 'none'; return; }
+  grp.style.display = 'block';
+  const label = grp.querySelector('.form-label');
+  const sel = document.getElementById('rDay');
+  if (rec === 'weekly') {
+    label.textContent = 'День недели';
+    sel.innerHTML = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье']
+      .map((d,i) => `<option value="${i}">${d}</option>`).join('');
+  } else {
+    label.textContent = 'День месяца';
+    sel.innerHTML = Array.from({length:28},(_,i)=>`<option value="${i+1}">${i+1}</option>`).join('');
+  }
+}
+
+async function saveRecurring() {
+  const title = document.getElementById('rTitle').value.trim();
+  if (!title) { tg?.showAlert('Введи название'); return; }
+  const data = {
+    title,
+    recurrence: document.getElementById('rRecurrence').value,
+    recurrence_day: parseInt(document.getElementById('rDay').value) || 0,
+    assignee_id: parseInt(document.getElementById('rAssignee').value) || null,
+    priority: rSelectedPriority,
+    estimated_hours: parseFloat(document.getElementById('rEstHours').value) || 0,
+  };
+  try {
+    await api(`/api/teams/${currentTeamId}/recurring`, 'POST', data);
+    closeRecurringSheet();
+    tg?.HapticFeedback?.notificationOccurred('success');
+    tg?.showAlert('✅ Повторяющаяся задача создана!');
+  } catch(e) { tg?.showAlert(e.message || 'Ошибка'); }
+}
+
+// Override pickOption to handle recurring priority too
+const _origPickOption = pickOption;
+function pickOption(container, id) {
+  if (container === 'rPriorityOptions') { rSelectedPriority = id; buildPickerOptions('rPriorityOptions', PRIORITIES, id); return; }
+  _origPickOption(container, id);
+}
+
+// ── Tag management ──
+function openNewTag() {
+  document.getElementById('fTagName').value = '';
+  selectedTagColor = TAG_COLORS[0];
+  const picker = document.getElementById('tagColorPicker');
+  picker.innerHTML = TAG_COLORS.map(c =>
+    `<div onclick="selectTagColor('${c}')" style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===selectedTagColor?'#fff':'transparent'};transition:.15s" id="tc_${c.slice(1)}"></div>`
+  ).join('');
+  document.getElementById('tagSheet').classList.add('show');
+}
+
+function selectTagColor(color) {
+  selectedTagColor = color;
+  TAG_COLORS.forEach(c => {
+    const el = document.getElementById(`tc_${c.slice(1)}`);
+    if (el) el.style.borderColor = c === color ? '#fff' : 'transparent';
+  });
+}
+
+function closeTagSheet() { document.getElementById('tagSheet').classList.remove('show'); }
+
+async function saveNewTag() {
+  const name = document.getElementById('fTagName').value.trim();
+  if (!name) { tg?.showAlert('Введи название тега'); return; }
+  try {
+    const tag = await api(`/api/teams/${currentTeamId}/tags`, 'POST', { name, color: selectedTagColor });
+    tags.push(tag);
+    populateTags(tag.id);
+    closeTagSheet();
+    tg?.HapticFeedback?.notificationOccurred('success');
+  } catch(e) { tg?.showAlert(e.message || 'Ошибка'); }
+}
+
+// ── Utils ──
+function esc(s) { if (!s) return ''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+function fmtDeadline(dl) {
+  if (!dl) return '';
+  try {
+    const d = new Date(dl.replace(' ', 'T'));
+    return d.toLocaleString('ru-RU', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+  } catch { return dl; }
+}
+
+function renderAll() { renderKanban(); renderList(); }
+
+// ── Start ──
+init();
+</script>
+</body>
+</html>
